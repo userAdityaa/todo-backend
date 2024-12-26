@@ -7,7 +7,8 @@ import (
 )
 
 func SetUpTodoRoutes(router *chi.Mux, collection *mongo.Collection) {
-	router.Get("/create-todo", handlers.CreateTodo(collection))
+	router.Post("/create-todo", handlers.CreateTodo(collection))
 	router.Delete("/delete-todo", handlers.DeleteTodo(collection))
-	router.Post("/update-todo", handlers.UpdateTodo(collection))
+	router.Put("/update-todo/{id}", handlers.UpdateTodo(collection))
+	router.Get("/all-todo", handlers.GetAllTodo(collection))
 }
