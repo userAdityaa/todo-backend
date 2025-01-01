@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/userAdityaa/todo-backend/models"
+	"github.com/userAdityaa/todo-backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -49,13 +50,26 @@ func GoogleCallBackHandler(database *mongo.Database) http.HandlerFunc {
 		user.Email = googleResponse["email"].(string)
 		user.Picture = googleResponse["picture"].(string)
 
+		token, err := utils.GenerateJWT(user)
+		if err != nil {
+			log.Println("Failed to generate Jwt: ", err)
+			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			return
+		}
+
 		err = storeInDatabase(database, user)
 		if err != nil {
 			http.Error(w, "Error inserting user", http.StatusBadRequest)
 			return
 		}
 
-		http.Redirect(w, r, "http://localhost:3000", http.StatusSeeOther)
+		response := map[string]interface{}{
+			"token": token,
+			"user":  user,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
