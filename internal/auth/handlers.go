@@ -16,7 +16,6 @@ func GoogleLoginHandler(w http.ResponseWriter, r *http.Request) {
 	url := GetGoogleAuthURL()
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	fmt.Println(url)
-	fmt.Println("coming here first...")
 }
 
 func GoogleCallBackHandler(w http.ResponseWriter, r *http.Request) {
