@@ -63,13 +63,16 @@ func GoogleCallBackHandler(database *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		response := map[string]interface{}{
-			"token": token,
-			"user":  user,
-		}
+		http.SetCookie(w, &http.Cookie{
+			Name:     "google_user_token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   false,
+			SameSite: http.SameSiteLaxMode,
+		})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		http.Redirect(w, r, "http://localhost:3000/home", http.StatusSeeOther)
 	}
 }
 
@@ -89,4 +92,36 @@ func storeInDatabase(database *mongo.Database, user models.User) error {
 	}
 
 	return nil
+}
+
+func GetUserDetailsHandler(database *mongo.Database, tokenString string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+			return
+		}
+
+		filter := bson.M{"email": email}
+
+		collection := database.Collection("user")
+		var user models.User
+
+		err = collection.FindOne(context.Background(), filter).Decode(&user)
+		if err == mongo.ErrNoDocuments {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		} else if err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(user)
+	}
 }
