@@ -83,24 +83,36 @@ func CreateTodo(collection *mongo.Collection) http.HandlerFunc {
 
 func DeleteTodo(collection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var todo models.Todo
-		if err := json.NewDecoder(r.Body).Decode(&todo); err != nil {
-			log.Fatal(err)
+		id := chi.URLParam(r, "id")
+		filterID, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			http.Error(w, "Invalid ID format", http.StatusBadRequest)
+			log.Println("Invalid ID format:", err)
 			return
 		}
 
-		_, err := collection.DeleteOne(context.TODO(), todo)
+		filter := bson.M{"_id": filterID}
+
+		result, err := collection.DeleteOne(context.TODO(), filter)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(w, "Failed to delete task", http.StatusInternalServerError)
+			log.Println("Error deleting task:", err)
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			http.Error(w, "Task not found", http.StatusNotFound)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 		response := map[string]interface{}{
 			"message": "Task Deleted Successfully",
 		}
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Println("Error encoding response:", err)
+		}
 	}
 }
 
@@ -160,3 +172,9 @@ func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
 		json.NewEncoder(w).Encode(response)
 	}
 }
+
+// func GetATodo(collection *mongo.Collection) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+
+// 	}
+// }
