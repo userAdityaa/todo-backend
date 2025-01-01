@@ -15,7 +15,8 @@ import (
 func main() {
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
-	collection := config.SetUpDataBase()
+	database := config.SetUpDataBase()
+	todoCollection := config.TodoCollection(database)
 	router := chi.NewMux()
 
 	corsHandler := cors.New(cors.Options{
@@ -28,9 +29,9 @@ func main() {
 	})
 
 	router.Use(corsHandler.Handler)
-	routes.SetUpTodoRoutes(router, collection)
+	routes.SetUpTodoRoutes(router, todoCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
-	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler)
+	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	port := config.LoadPort()
 
 	fmt.Printf("Connected Locally to port number: %s\n", port)

@@ -36,7 +36,7 @@ func LoadConfig() {
 	GoogleRedirectURL = os.Getenv("GOOGLE_REDIRECT_URL")
 }
 
-func SetUpDataBase() *mongo.Collection {
+func SetUpDataBase() *mongo.Database {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
@@ -53,7 +53,13 @@ func SetUpDataBase() *mongo.Collection {
 	fmt.Println("Connected to mongoDB.")
 
 	database := client.Database("todoDB")
-	collection := database.Collection("todo")
+	return database
+}
 
-	return collection
+func TodoCollection(database *mongo.Database) *mongo.Collection {
+	return database.Collection("todo")
+}
+
+func UserCollection(database *mongo.Database) *mongo.Collection {
+	return database.Collection("user")
 }
