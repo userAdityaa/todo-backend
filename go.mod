@@ -6,7 +6,6 @@ toolchain go1.22.10
 
 require (
 	github.com/go-chi/chi/v5 v5.2.0
-	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/cors v1.11.1
 	go.mongodb.org/mongo-driver v1.17.1
