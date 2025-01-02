@@ -17,6 +17,7 @@ func main() {
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 	database := config.SetUpDataBase()
 	todoCollection := config.TodoCollection(database)
+	userCollection := config.UserCollection(database)
 	router := chi.NewMux()
 
 	corsHandler := cors.New(cors.Options{
@@ -29,7 +30,7 @@ func main() {
 	})
 
 	router.Use(corsHandler.Handler)
-	routes.SetUpTodoRoutes(router, todoCollection)
+	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
