@@ -189,8 +189,39 @@ func DeleteTodo(collection *mongo.Collection, userCollection *mongo.Collection) 
 	}
 }
 
-func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
+func UpdateTodo(collection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
 		id := chi.URLParam(r, "id")
 		if id == "" {
 			http.Error(w, "Invalid Todo ID", http.StatusBadRequest)
@@ -202,8 +233,8 @@ func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
 			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
 			return
 		}
-		var updatedTodo models.Todo
 
+		var updatedTodo models.Todo
 		if err := json.Unmarshal(body, &updatedTodo); err != nil {
 			http.Error(w, "Invalid JSON format: "+err.Error(), http.StatusBadRequest)
 			return
@@ -216,6 +247,8 @@ func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
 				"list":        updatedTodo.List,
 				"due_date":    updatedTodo.DueDate,
 				"sub_task":    updatedTodo.Subtask,
+				"user_id":     user.ID,
+				"updated_at":  time.Now(),
 			},
 		}
 
@@ -225,13 +258,37 @@ func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
 			return
 		}
 
-		filter := bson.M{"_id": filterID}
+		fmt.Println("filter id: ", filterID)
+
+		filter := bson.M{
+			"_id": filterID,
+		}
 
 		result, err := collection.UpdateOne(context.TODO(), filter, update)
-
-		fmt.Println(err)
 		if err != nil {
 			http.Error(w, "Failed to update todo", http.StatusInternalServerError)
+			return
+		}
+
+		if result.MatchedCount == 0 {
+			http.Error(w, "Todo not found or unauthorized", http.StatusNotFound)
+			return
+		}
+
+		userFilter := bson.M{"_id": user.ID, "todos._id": filterID}
+		userUpdate := bson.M{
+			"$set": bson.M{
+				"todos.$.name":        updatedTodo.Name,
+				"todos.$.description": updatedTodo.Description,
+				"todos.$.list":        updatedTodo.List,
+				"todos.$.due_date":    updatedTodo.DueDate,
+				"todos.$.sub_task":    updatedTodo.Subtask,
+			},
+		}
+
+		_, err = userCollection.UpdateOne(context.TODO(), userFilter, userUpdate)
+		if err != nil {
+			http.Error(w, "Failed to update user's todo list", http.StatusInternalServerError)
 			return
 		}
 
