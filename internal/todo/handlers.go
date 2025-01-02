@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/userAdityaa/todo-backend/models"
+	"github.com/userAdityaa/todo-backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -48,7 +49,7 @@ func GetAllTodo(collection *mongo.Collection) http.HandlerFunc {
 	}
 }
 
-func CreateTodo(collection *mongo.Collection) http.HandlerFunc {
+func CreateTodo(collection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var todo models.Todo
 		if err := json.NewDecoder(r.Body).Decode(&todo); err != nil {
@@ -59,14 +60,59 @@ func CreateTodo(collection *mongo.Collection) http.HandlerFunc {
 
 		todo.ID = primitive.NewObjectID()
 
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
 		if todo.Name == "" {
 			http.Error(w, "Name and DueDate are required field", http.StatusBadRequest)
 			return
 		}
 
-		_, err := collection.InsertOne(context.TODO(), todo)
+		_, err = collection.InsertOne(context.TODO(), todo)
 		if err != nil {
 			log.Fatal(err)
+			return
+		}
+
+		user.Todo = append(user.Todo, todo)
+
+		_, err = userCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"_id": user.ID},
+			bson.M{"$set": bson.M{"todos": user.Todo}},
+		)
+
+		if err != nil {
+			log.Println("Error updating user:", err)
+			http.Error(w, "Failed to update user with new Todo", http.StatusInternalServerError)
 			return
 		}
 
