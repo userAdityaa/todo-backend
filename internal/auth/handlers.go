@@ -79,40 +79,34 @@ func storeInDatabase(database *mongo.Database, user models.User) error {
 
 func GetUserDetailsHandler(database *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only accept GET requests
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Get token from Authorization header instead of body
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
 			return
 		}
 
-		// Remove "Bearer " prefix if present
 		tokenString := authHeader
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			tokenString = authHeader[7:]
 		}
 
-		// Validate the token
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
 			http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
 
-		// Extract email from claims
 		email, ok := claims["email"].(string)
 		if !ok {
 			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
 			return
 		}
 
-		// Find user in database
 		collection := database.Collection("user")
 		var user models.User
 		filter := bson.M{"email": email}
