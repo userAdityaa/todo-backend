@@ -32,7 +32,7 @@ func main() {
 	routes.SetUpTodoRoutes(router, todoCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
-	router.HandleFunc("/auth/user", auth.GetUserDetailsHandler(database))
+	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 	port := config.LoadPort()
 
 	fmt.Printf("Connected Locally to port number: %s\n", port)

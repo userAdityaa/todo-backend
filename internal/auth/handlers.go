@@ -79,39 +79,58 @@ func storeInDatabase(database *mongo.Database, user models.User) error {
 
 func GetUserDetailsHandler(database *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var tokenString string
-
-		if err := json.NewDecoder(r.Body).Decode(&tokenString); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+		// Only accept GET requests
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
+		// Get token from Authorization header instead of body
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+			return
+		}
+
+		// Remove "Bearer " prefix if present
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		// Validate the token
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
 
+		// Extract email from claims
 		email, ok := claims["email"].(string)
 		if !ok {
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
 			return
 		}
 
-		filter := bson.M{"email": email}
-
+		// Find user in database
 		collection := database.Collection("user")
 		var user models.User
+		filter := bson.M{"email": email}
 
 		err = collection.FindOne(context.Background(), filter).Decode(&user)
 		if err == mongo.ErrNoDocuments {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		} else if err != nil {
-			http.Error(w, "Database error", http.StatusInternalServerError)
+			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
 	}
 }
