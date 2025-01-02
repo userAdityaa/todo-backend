@@ -12,11 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var user struct {
-	Profile string `json:"profile"`
-	Name    string `json:"name"`
-}
-
 func GoogleLoginHandler(w http.ResponseWriter, r *http.Request) {
 	url := GetGoogleAuthURL()
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
@@ -26,53 +21,41 @@ func GoogleCallBackHandler(database *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
 		if code == "" {
-			http.Error(w, "code not found", http.StatusBadRequest)
+			http.Error(w, "Code not found", http.StatusBadRequest)
 			return
 		}
 
 		userInfo, err := HandleGoogleCallBack(code)
 		if err != nil {
-			log.Println("Failed to authenticate user:", err)
-			http.Error(w, "Failed to authenticate", http.StatusInternalServerError)
+			log.Println("Error:", err)
+			http.Error(w, "Authentication failed", http.StatusInternalServerError)
 			return
 		}
 
 		var googleResponse map[string]interface{}
-		if err := json.Unmarshal([]byte(userInfo), &googleResponse); err != nil {
-			log.Println("Failed to parse user info:", err)
-			http.Error(w, "Failed to parse user info", http.StatusInternalServerError)
-			return
+		json.Unmarshal([]byte(userInfo), &googleResponse)
+
+		user := models.User{
+			ID:      googleResponse["id"].(string),
+			Name:    googleResponse["name"].(string),
+			Email:   googleResponse["email"].(string),
+			Picture: googleResponse["picture"].(string),
 		}
 
-		var user models.User
-		user.ID = googleResponse["id"].(string)
-		user.Name = googleResponse["name"].(string)
-		user.Email = googleResponse["email"].(string)
-		user.Picture = googleResponse["picture"].(string)
+		if err := storeInDatabase(database, user); err != nil {
+			log.Println("Database error:", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 
 		token, err := utils.GenerateJWT(user)
 		if err != nil {
-			log.Println("Failed to generate Jwt: ", err)
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			http.Error(w, "Token generation failed", http.StatusInternalServerError)
 			return
 		}
 
-		err = storeInDatabase(database, user)
-		if err != nil {
-			http.Error(w, "Error inserting user", http.StatusBadRequest)
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:     "google_user_token",
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   false,
-			SameSite: http.SameSiteLaxMode,
-		})
-
-		http.Redirect(w, r, "http://localhost:3000/home", http.StatusSeeOther)
+		redirectURL := "http://localhost:3000/home?token=" + token
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -94,8 +77,15 @@ func storeInDatabase(database *mongo.Database, user models.User) error {
 	return nil
 }
 
-func GetUserDetailsHandler(database *mongo.Database, tokenString string) http.HandlerFunc {
+func GetUserDetailsHandler(database *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var tokenString string
+
+		if err := json.NewDecoder(r.Body).Decode(&tokenString); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
