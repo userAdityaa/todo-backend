@@ -102,6 +102,8 @@ func CreateTodo(collection *mongo.Collection, userCollection *mongo.Collection) 
 			return
 		}
 
+		insertedID := todo.ID
+		todo.ID = insertedID
 		user.Todo = append(user.Todo, todo)
 
 		_, err = userCollection.UpdateOne(
@@ -127,38 +129,63 @@ func CreateTodo(collection *mongo.Collection, userCollection *mongo.Collection) 
 	}
 }
 
-func DeleteTodo(collection *mongo.Collection) http.HandlerFunc {
+func DeleteTodo(collection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
 		id := chi.URLParam(r, "id")
 		filterID, err := primitive.ObjectIDFromHex(id)
+
+		_, err = collection.DeleteOne(context.TODO(), bson.M{"_id": filterID})
 		if err != nil {
-			http.Error(w, "Invalid ID format", http.StatusBadRequest)
-			log.Println("Invalid ID format:", err)
+			http.Error(w, "Error deleting todo", http.StatusInternalServerError)
 			return
 		}
 
-		filter := bson.M{"_id": filterID}
+		_, err = userCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"email": email},
+			bson.M{"$pull": bson.M{"todos": bson.M{"_id": filterID}}},
+		)
 
-		result, err := collection.DeleteOne(context.TODO(), filter)
 		if err != nil {
-			http.Error(w, "Failed to delete task", http.StatusInternalServerError)
-			log.Println("Error deleting task:", err)
-			return
-		}
-
-		if result.DeletedCount == 0 {
-			http.Error(w, "Task not found", http.StatusNotFound)
+			http.Error(w, "Failed to update user todo list", http.StatusInternalServerError)
+			log.Println("Failed to update user todo list:", err)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		response := map[string]interface{}{
-			"message": "Task Deleted Successfully",
-		}
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Println("Error encoding response:", err)
-		}
+		w.Write([]byte("Todo deleted successfully"))
 	}
 }
 
@@ -218,9 +245,3 @@ func UpdateTodo(collection *mongo.Collection) http.HandlerFunc {
 		json.NewEncoder(w).Encode(response)
 	}
 }
-
-// func GetATodo(collection *mongo.Collection) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-
-// 	}
-// }
