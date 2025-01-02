@@ -7,8 +7,6 @@ import (
 	"github.com/userAdityaa/todo-backend/models"
 )
 
-var jwtSecret = []byte("your-secret-key")
-
 func GenerateJWT(user models.User) (string, error) {
 	claims := jwt.MapClaims{
 		"id":    user.ID,
@@ -17,5 +15,5 @@ func GenerateJWT(user models.User) (string, error) {
 		"exp":   time.Now().Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(secretKey)
 }
