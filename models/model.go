@@ -14,9 +14,17 @@ type Todo struct {
 }
 
 type User struct {
-	ID      string `json:"id" bson:"_id"`
-	Name    string `json:"name" bson:"username"`
-	Email   string `json:"email" bson:"email"`
-	Picture string `json:"picture" bson:"picture"`
-	Todo    []Todo `json:"todos" bson:"todos"`
+	ID      string   `json:"id" bson:"_id"`
+	Name    string   `json:"name" bson:"username"`
+	Email   string   `json:"email" bson:"email"`
+	Picture string   `json:"picture" bson:"picture"`
+	Todo    []Todo   `json:"todos" bson:"todos"`
+	Stick   []Sticky `json:"sticky" bson:"sticky"`
+}
+
+type Sticky struct {
+	ID      primitive.ObjectID `json:"id" bson:"_id"`
+	Topic   string             `json:"topic" bson:"topic"`
+	Content string             `json:"content" bson:"content"`
+	Color   string             `json:"color" bson:"color"`
 }
