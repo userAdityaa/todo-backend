@@ -63,3 +63,7 @@ func TodoCollection(database *mongo.Database) *mongo.Collection {
 func UserCollection(database *mongo.Database) *mongo.Collection {
 	return database.Collection("user")
 }
+
+func StickyCollection(database *mongo.Database) *mongo.Collection {
+	return database.Collection("sticky")
+}
