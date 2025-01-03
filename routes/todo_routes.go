@@ -10,5 +10,5 @@ func SetUpTodoRoutes(router *chi.Mux, collection *mongo.Collection, userCollecti
 	router.Post("/create-todo", handlers.CreateTodo(collection, userCollection))
 	router.Delete("/delete-todo/{id}", handlers.DeleteTodo(collection, userCollection))
 	router.Put("/update-todo/{id}", handlers.UpdateTodo(collection, userCollection))
-	router.Get("/all-todo", handlers.GetAllTodo(collection))
+	router.Get("/all-todo", handlers.GetAllTodo(collection, userCollection))
 }
