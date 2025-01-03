@@ -17,35 +17,54 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GetAllTodo(collection *mongo.Collection) http.HandlerFunc {
+func GetAllTodo(collection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var todos []models.Todo
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		cursor, err := collection.Find(ctx, bson.M{})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
 			return
 		}
-		defer cursor.Close(ctx)
 
-		for cursor.Next(ctx) {
-			var todo models.Todo
-			if err := cursor.Decode(&todo); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			todos = append(todos, todo)
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
 		}
 
-		if err := cursor.Err(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		if len(user.Todo) == 0 {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"message": "No todos found for this user"}`))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(todos)
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(user.Todo)
+		if err != nil {
+			log.Println("Error encoding todos:", err)
+			http.Error(w, "Failed to fetch todos", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
