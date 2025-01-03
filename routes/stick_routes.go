@@ -8,4 +8,5 @@ import (
 
 func SetUpStickyRoutes(router *chi.Mux, stickCollection *mongo.Collection, userCollection *mongo.Collection) {
 	router.Post("/create-sticky", handlers.CreateSticky(stickCollection, userCollection))
+	router.Get("/all-sticky", handlers.GetAllSticky(stickCollection, userCollection))
 }

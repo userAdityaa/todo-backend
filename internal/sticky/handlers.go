@@ -93,3 +93,54 @@ func CreateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 		json.NewEncoder(w).Encode(response)
 	}
 }
+
+func GetAllSticky(stickyCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		if len(user.Stick) == 0 {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"message": "No Sticky found for this user"}`))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(user.Stick)
+		if err != nil {
+			log.Println("Error encoding sticky: ", err)
+			http.Error(w, "Failed to fetch sticky", http.StatusInternalServerError)
+			return
+		}
+	}
+}
