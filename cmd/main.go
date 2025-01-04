@@ -19,6 +19,7 @@ func main() {
 	todoCollection := config.TodoCollection(database)
 	userCollection := config.UserCollection(database)
 	stickyCollection := config.StickyCollection(database)
+	listCollection := config.ListCollection(database)
 	router := chi.NewMux()
 
 	corsHandler := cors.New(cors.Options{
@@ -33,6 +34,7 @@ func main() {
 	router.Use(corsHandler.Handler)
 	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
 	routes.SetUpStickyRoutes(router, stickyCollection, userCollection)
+	routes.SetUpListRoutes(router, listCollection, userCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
