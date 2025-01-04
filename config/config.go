@@ -67,3 +67,7 @@ func UserCollection(database *mongo.Database) *mongo.Collection {
 func StickyCollection(database *mongo.Database) *mongo.Collection {
 	return database.Collection("sticky")
 }
+
+func ListCollection(database *mongo.Database) *mongo.Collection {
+	return database.Collection("list")
+}
