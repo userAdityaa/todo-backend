@@ -91,3 +91,81 @@ func CreateList(listCollection *mongo.Collection, userCollection *mongo.Collecti
 		json.NewEncoder(w).Encode(response)
 	}
 }
+
+func DeleteList(listCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		var deleteRequest struct {
+			ID primitive.ObjectID `json:"id"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&deleteRequest); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if deleteRequest.ID.IsZero() {
+			http.Error(w, "Invalide list ID", http.StatusBadRequest)
+			return
+		}
+
+		result, err := listCollection.DeleteOne(
+			context.TODO(),
+			bson.M{"_id": deleteRequest.ID},
+		)
+		if err != nil {
+			http.Error(w, "Error Deleting List", http.StatusInternalServerError)
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			http.Error(w, "Sticky not found", http.StatusNotFound)
+			return
+		}
+
+		_, err = userCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"email": email},
+			bson.M{
+				"$pull": bson.M{"list": bson.M{"_id": deleteRequest.ID}},
+			},
+		)
+
+		if err != nil {
+			http.Error(w, "Error removing list", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "List Deleted Successfully",
+		})
+	}
+}
