@@ -288,7 +288,6 @@ func DeleteSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			return
 		}
 
-		// Delete the sticky from the stickyCollection
 		result, err := stickyCollection.DeleteOne(
 			context.TODO(),
 			bson.M{"_id": deleteRequest.ID},
@@ -304,7 +303,6 @@ func DeleteSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			return
 		}
 
-		// Remove the sticky from the user's sticky array
 		_, err = userCollection.UpdateOne(
 			context.TODO(),
 			bson.M{"email": email},
