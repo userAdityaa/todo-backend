@@ -10,4 +10,5 @@ func SetUpStickyRoutes(router *chi.Mux, stickCollection *mongo.Collection, userC
 	router.Post("/create-sticky", handlers.CreateSticky(stickCollection, userCollection))
 	router.Get("/all-sticky", handlers.GetAllSticky(stickCollection, userCollection))
 	router.Put("/update-sticky", handlers.UpdateSticky(stickCollection, userCollection))
+	router.Delete("/delete-sticky", handlers.DeleteSticky(stickCollection, userCollection))
 }
