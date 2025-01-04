@@ -4,6 +4,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type List struct {
+	ID    primitive.ObjectID `json:"id" bson:"_id"`
+	Name  string             `json:"name" bson:"name"`
+	Color string             `json:"color" bson:"color"`
+}
+
 type Todo struct {
 	ID          primitive.ObjectID `json:"id" bson:"_id"`
 	Name        string             `json:"name" bson:"name"`
@@ -20,6 +26,7 @@ type User struct {
 	Picture string   `json:"picture" bson:"picture"`
 	Todo    []Todo   `json:"todos" bson:"todos"`
 	Stick   []Sticky `json:"sticky" bson:"sticky"`
+	List    []List   `json:"list" bson:"list"`
 }
 
 type Sticky struct {
