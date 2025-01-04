@@ -144,3 +144,97 @@ func GetAllSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 		}
 	}
 }
+
+func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Auth handling remains the same
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		// Parse the incoming update
+		var partialUpdate struct {
+			ID      primitive.ObjectID `json:"id"`
+			Topic   *string            `json:"topic,omitempty"`
+			Content *string            `json:"content,omitempty"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&partialUpdate); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if partialUpdate.ID.IsZero() {
+			http.Error(w, "Invalid sticky ID", http.StatusBadRequest)
+			return
+		}
+
+		// Build update document dynamically based on what fields were provided
+		updateFields := bson.M{}
+		if partialUpdate.Topic != nil {
+			updateFields["sticky.$.topic"] = *partialUpdate.Topic
+		}
+		if partialUpdate.Content != nil {
+			updateFields["sticky.$.content"] = *partialUpdate.Content
+		}
+
+		// Only update if there are fields to update
+		if len(updateFields) == 0 {
+			http.Error(w, "No fields to update", http.StatusBadRequest)
+			return
+		}
+
+		result, err := userCollection.UpdateOne(
+			context.TODO(),
+			bson.M{
+				"email":      email,
+				"sticky._id": partialUpdate.ID,
+			},
+			bson.M{
+				"$set": updateFields,
+			},
+		)
+
+		if err != nil {
+			log.Printf("Error updating sticky: %v", err)
+			http.Error(w, "Error updating sticky", http.StatusInternalServerError)
+			return
+		}
+
+		if result.MatchedCount == 0 {
+			http.Error(w, "Sticky not found", http.StatusNotFound)
+			return
+		}
+
+		// Return only the updated fields
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Sticky updated successfully",
+			"sticky":  partialUpdate,
+		})
+	}
+}
