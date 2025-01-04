@@ -147,7 +147,6 @@ func GetAllSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 
 func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Auth handling remains the same
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
@@ -176,7 +175,6 @@ func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			return
 		}
 
-		// Parse the incoming update
 		var partialUpdate struct {
 			ID      primitive.ObjectID `json:"id"`
 			Topic   *string            `json:"topic,omitempty"`
@@ -193,7 +191,6 @@ func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			return
 		}
 
-		// Build update document dynamically based on what fields were provided
 		updateFields := bson.M{}
 		if partialUpdate.Topic != nil {
 			updateFields["sticky.$.topic"] = *partialUpdate.Topic
@@ -202,13 +199,22 @@ func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			updateFields["sticky.$.content"] = *partialUpdate.Content
 		}
 
-		// Only update if there are fields to update
 		if len(updateFields) == 0 {
 			http.Error(w, "No fields to update", http.StatusBadRequest)
 			return
 		}
 
-		result, err := userCollection.UpdateOne(
+		result, err := stickyCollection.UpdateOne(
+			context.TODO(),
+			bson.M{
+				"_id": partialUpdate.ID,
+			},
+			bson.M{
+				"$set": updateFields,
+			},
+		)
+
+		result, err = userCollection.UpdateOne(
 			context.TODO(),
 			bson.M{
 				"email":      email,
@@ -230,11 +236,91 @@ func UpdateSticky(stickyCollection *mongo.Collection, userCollection *mongo.Coll
 			return
 		}
 
-		// Return only the updated fields
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"message": "Sticky updated successfully",
 			"sticky":  partialUpdate,
+		})
+	}
+}
+
+func DeleteSticky(stickyCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		var deleteRequest struct {
+			ID primitive.ObjectID `json:"id"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&deleteRequest); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if deleteRequest.ID.IsZero() {
+			http.Error(w, "Invalid sticky ID", http.StatusBadRequest)
+			return
+		}
+
+		// Delete the sticky from the stickyCollection
+		result, err := stickyCollection.DeleteOne(
+			context.TODO(),
+			bson.M{"_id": deleteRequest.ID},
+		)
+		if err != nil {
+			log.Printf("Error deleting sticky: %v", err)
+			http.Error(w, "Error deleting sticky", http.StatusInternalServerError)
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			http.Error(w, "Sticky not found", http.StatusNotFound)
+			return
+		}
+
+		// Remove the sticky from the user's sticky array
+		_, err = userCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"email": email},
+			bson.M{
+				"$pull": bson.M{"sticky": bson.M{"_id": deleteRequest.ID}},
+			},
+		)
+		if err != nil {
+			log.Printf("Error updating user collection: %v", err)
+			http.Error(w, "Error removing sticky from user data", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Sticky deleted successfully",
 		})
 	}
 }
