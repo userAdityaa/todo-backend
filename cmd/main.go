@@ -1,8 +1,7 @@
-package main
+// api/index.go
+package handler
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,17 +11,23 @@ import (
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
-func main() {
+func Handler(w http.ResponseWriter, r *http.Request) {
+	// Initialize configurations
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
+
+	// Setup database connections
 	database := config.SetUpDataBase()
 	todoCollection := config.TodoCollection(database)
 	userCollection := config.UserCollection(database)
 	stickyCollection := config.StickyCollection(database)
 	listCollection := config.ListCollection(database)
 	eventCollection := config.EventCollection(database)
+
+	// Setup router
 	router := chi.NewMux()
 
+	// Setup CORS
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"https://minimal-planner.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -33,18 +38,18 @@ func main() {
 	})
 
 	router.Use(corsHandler.Handler)
+
+	// Setup routes
 	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
 	routes.SetUpStickyRoutes(router, stickyCollection, userCollection)
 	routes.SetUpListRoutes(router, listCollection, userCollection)
 	routes.SetUpEventRoutes(router, eventCollection, userCollection)
+
+	// Auth routes
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
-	port := config.LoadPort()
 
-	fmt.Printf("Connected Locally to port number: %s\n", port)
-	if err := http.ListenAndServe(config.LoadPort(), router); err != nil {
-		log.Fatal(err)
-		return
-	}
+	// Serve the request
+	router.ServeHTTP(w, r)
 }
