@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/userAdityaa/todo-backend/models"
 	"github.com/userAdityaa/todo-backend/utils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -215,6 +216,70 @@ func GetAllList(listCollection *mongo.Collection, userCollection *mongo.Collecti
 		err = json.NewEncoder(w).Encode(user.List)
 		if err != nil {
 			http.Error(w, "Failed to fetch List", http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func FindAList(listCollection *mongo.Collection, userCollection *mongo.Collection) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		listID := chi.URLParam(r, "id")
+		if listID == "" {
+			http.Error(w, "List ID is required", http.StatusBadRequest)
+			return
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing authorization token", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		}
+
+		claims, err := utils.ValidateToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			http.Error(w, "Invalid token claims: email missing", http.StatusUnauthorized)
+			return
+		}
+
+		var user models.User
+		err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+		if err != nil {
+			log.Println("User not found:", err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		var foundList models.List
+		found := false
+		for _, list := range user.List {
+			if list.ID.Hex() == listID {
+				foundList = list
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			http.Error(w, "List not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(foundList)
+		if err != nil {
+			http.Error(w, "Failed to encode list", http.StatusInternalServerError)
 			return
 		}
 	}
