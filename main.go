@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"log"
@@ -11,7 +11,7 @@ import (
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
-func StartServer() {
+func main() {
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 
