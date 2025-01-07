@@ -1,4 +1,4 @@
-package main
+package handler // Note: Changed from "main" to "handler"
 
 import (
 	"net/http"
@@ -10,6 +10,12 @@ import (
 	"github.com/userAdityaa/todo-backend/internal/auth"
 	"github.com/userAdityaa/todo-backend/routes"
 	"go.mongodb.org/mongo-driver/mongo"
+)
+
+// Package-level variables for maintaining state between invocations
+var (
+	initializeOnce sync.Once
+	database       *mongo.Database
 )
 
 // Handler is the entrypoint for Vercel serverless function
@@ -47,16 +53,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 
+	// Root route handler
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("Hello world"))
 	})
 
 	// Serve the request
 	router.ServeHTTP(w, r)
 }
-
-// Package-level variables for maintaining state between invocations
-var (
-	initializeOnce sync.Once
-	database       *mongo.Database
-)
