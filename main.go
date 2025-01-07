@@ -43,8 +43,8 @@ func main() {
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 
-	log.Println("Starting server on port 8080")
-	err := http.ListenAndServe(":8080", router)
+	log.Println("Starting server on port 8000")
+	err := http.ListenAndServe(":8000", router)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}

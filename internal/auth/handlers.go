@@ -54,7 +54,7 @@ func GoogleCallBackHandler(database *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		redirectURL := "http://localhost:3000/home?token=" + token
+		redirectURL := "https://minimal-planner.vercel.app/home?token=" + token
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
 }
