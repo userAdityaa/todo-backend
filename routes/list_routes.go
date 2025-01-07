@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/go-chi/chi/v5"
-	handlers "github.com/userAdityaa/todo-backend/internal/list"
+	handlers "github.com/userAdityaa/todo-backend/internal/List"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
