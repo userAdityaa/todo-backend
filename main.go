@@ -1,7 +1,7 @@
-// api/index.go
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,8 +11,7 @@ import (
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
-// Handler is the entry point for the Render serverless function
-func Handler(w http.ResponseWriter, r *http.Request) {
+func StartServer() {
 	// Initialize configurations
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
@@ -26,7 +25,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	eventCollection := config.EventCollection(database)
 
 	// Setup router
-	router := chi.NewRouter() // Using NewRouter() instead of NewMux()
+	router := chi.NewRouter()
 
 	// Setup CORS
 	corsHandler := cors.New(cors.Options{
@@ -50,6 +49,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 
-	// Serve the request
-	router.ServeHTTP(w, r)
+	// Start server on port 8080 (for Render)
+	log.Println("Starting server on port 8080")
+	err := http.ListenAndServe(":8080", router)
+	if err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
 }
