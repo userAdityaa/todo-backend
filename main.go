@@ -12,11 +12,9 @@ import (
 )
 
 func StartServer() {
-	// Initialize configurations
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 
-	// Setup database connections
 	database := config.SetUpDataBase()
 	todoCollection := config.TodoCollection(database)
 	userCollection := config.UserCollection(database)
@@ -24,10 +22,8 @@ func StartServer() {
 	listCollection := config.ListCollection(database)
 	eventCollection := config.EventCollection(database)
 
-	// Setup router
 	router := chi.NewRouter()
 
-	// Setup CORS
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"https://minimal-planner.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -38,18 +34,15 @@ func StartServer() {
 	})
 	router.Use(corsHandler.Handler)
 
-	// Setup routes
 	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
 	routes.SetUpStickyRoutes(router, stickyCollection, userCollection)
 	routes.SetUpListRoutes(router, listCollection, userCollection)
 	routes.SetUpEventRoutes(router, eventCollection, userCollection)
 
-	// Auth routes
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 
-	// Start server on port 8080 (for Render)
 	log.Println("Starting server on port 8080")
 	err := http.ListenAndServe(":8080", router)
 	if err != nil {
