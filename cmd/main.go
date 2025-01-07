@@ -1,36 +1,28 @@
-package handler // Note: Changed from "main" to "handler"
+package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
-	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 	"github.com/userAdityaa/todo-backend/config"
 	"github.com/userAdityaa/todo-backend/internal/auth"
 	"github.com/userAdityaa/todo-backend/routes"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Package-level variables for maintaining state between invocations
-var (
-	initializeOnce sync.Once
-	database       *mongo.Database
-)
+func main() {
+	config.LoadConfig()
+	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
+	database := config.SetUpDataBase()
+	todoCollection := config.TodoCollection(database)
+	userCollection := config.UserCollection(database)
+	stickyCollection := config.StickyCollection(database)
+	listCollection := config.ListCollection(database)
+	eventCollection := config.EventCollection(database)
+	router := chi.NewMux()
 
-// Handler is the entrypoint for Vercel serverless function
-func Handler(w http.ResponseWriter, r *http.Request) {
-	// Initialize configurations only once
-	initializeOnce.Do(func() {
-		config.LoadConfig()
-		auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
-		database = config.SetUpDataBase() // Store in package-level variable
-	})
-
-	// Create a new router instance for each request
-	router := chi.NewRouter()
-
-	// Configure CORS
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"https://minimal-planner.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -41,24 +33,18 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	router.Use(corsHandler.Handler)
-
-	// Set up routes using the shared database connection
-	routes.SetUpTodoRoutes(router, config.TodoCollection(database), config.UserCollection(database))
-	routes.SetUpStickyRoutes(router, config.StickyCollection(database), config.UserCollection(database))
-	routes.SetUpListRoutes(router, config.ListCollection(database), config.UserCollection(database))
-	routes.SetUpEventRoutes(router, config.EventCollection(database), config.UserCollection(database))
-
-	// Auth routes
+	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
+	routes.SetUpStickyRoutes(router, stickyCollection, userCollection)
+	routes.SetUpListRoutes(router, listCollection, userCollection)
+	routes.SetUpEventRoutes(router, eventCollection, userCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
+	port := config.LoadPort()
 
-	// Root route handler
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("Hello world"))
-	})
-
-	// Serve the request
-	router.ServeHTTP(w, r)
+	fmt.Printf("Connected Locally to port number: %s\n", port)
+	if err := http.ListenAndServe(config.LoadPort(), router); err != nil {
+		log.Fatal(err)
+		return
+	}
 }

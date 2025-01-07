@@ -16,13 +16,11 @@ var GoogleClientSecret string
 var GoogleRedirectURL string
 
 func LoadPort() string {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	port := os.Getenv("PORT")
-	return port
+	if port == "" {
+		port = ":8080"
+	}
+	return "0.0.0.0" + port
 }
 
 func LoadConfig() {
