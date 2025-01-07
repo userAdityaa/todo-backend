@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -27,6 +29,7 @@ type User struct {
 	Todo    []Todo   `json:"todos" bson:"todos"`
 	Stick   []Sticky `json:"sticky" bson:"sticky"`
 	List    []List   `json:"list" bson:"list"`
+	Event   []Event  `json:"event" bson:"event"`
 }
 
 type Sticky struct {
@@ -34,4 +37,13 @@ type Sticky struct {
 	Topic   string             `json:"topic" bson:"topic"`
 	Content string             `json:"content" bson:"content"`
 	Color   string             `json:"color" bson:"color"`
+}
+
+type Event struct {
+	ID    primitive.ObjectID `json:"id" bson:"_id"`
+	Title string             `json:"title" bson:"title"`
+	Date  time.Time          `json:"date" bson:"date"`
+	Color string             `json:"color" bson:"color"`
+	Start time.Time          `json:"start" bson:"start"`
+	End   time.Time          `json:"end" bson:"end"`
 }
