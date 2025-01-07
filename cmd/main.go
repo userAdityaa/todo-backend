@@ -20,10 +20,11 @@ func main() {
 	userCollection := config.UserCollection(database)
 	stickyCollection := config.StickyCollection(database)
 	listCollection := config.ListCollection(database)
+	eventCollection := config.EventCollection(database)
 	router := chi.NewMux()
 
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedOrigins:   []string{"https://minimal-planner.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -35,6 +36,7 @@ func main() {
 	routes.SetUpTodoRoutes(router, todoCollection, userCollection)
 	routes.SetUpStickyRoutes(router, stickyCollection, userCollection)
 	routes.SetUpListRoutes(router, listCollection, userCollection)
+	routes.SetUpEventRoutes(router, eventCollection, userCollection)
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))

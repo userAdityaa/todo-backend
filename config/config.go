@@ -71,3 +71,7 @@ func StickyCollection(database *mongo.Database) *mongo.Collection {
 func ListCollection(database *mongo.Database) *mongo.Collection {
 	return database.Collection("list")
 }
+
+func EventCollection(database *mongo.Database) *mongo.Collection {
+	return database.Collection("event")
+}
