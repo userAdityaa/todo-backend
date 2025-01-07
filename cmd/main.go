@@ -47,6 +47,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
 
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello world"))
+	})
+
 	// Serve the request
 	router.ServeHTTP(w, r)
 }
