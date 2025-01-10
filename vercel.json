@@ -11,11 +11,12 @@
         "src": "/(.*)",
         "dest": "cmd/main.go"
       }
-    ], 
+    ],
     "env": {
-    "GOOGLE_CLIENT_ID": "YOUR_GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET": "YOUR_GOOGLE_CLIENT_SECRET",
-    "GOOGLE_REDIRECT_URL": "YOUR_GOOGLE_REDIRECT_URL",
-    "MONGO_URI": "YOUR_MONGO_URI"
+      "GOOGLE_CLIENT_ID": "YOUR_GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET": "YOUR_GOOGLE_CLIENT_SECRET",
+      "GOOGLE_REDIRECT_URL": "YOUR_GOOGLE_REDIRECT_URL",
+      "MONGO_URI": "YOUR_MONGO_URI"
+    }
   }
-}
+  

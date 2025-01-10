@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,7 +10,8 @@ import (
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
-func main() {
+// Handler is the exported function required by Vercel.
+func Handler(w http.ResponseWriter, r *http.Request) {
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 
@@ -41,9 +41,5 @@ func main() {
 	routes.SetUpListRoutes(router, listCollection, userCollection)
 	routes.SetUpEventRoutes(router, eventCollection, userCollection)
 
-	log.Println("Starting server on port 8000")
-	err := http.ListenAndServe(":8000", router)
-	if err != nil {
-		log.Fatalf("Error starting server: %v", err)
-	}
+	router.ServeHTTP(w, r)
 }
