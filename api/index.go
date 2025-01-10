@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"net/http"
@@ -10,7 +10,6 @@ import (
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
-// Handler is the exported function required by Vercel.
 func Handler(w http.ResponseWriter, r *http.Request) {
 	config.LoadConfig()
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
