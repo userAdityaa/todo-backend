@@ -140,8 +140,10 @@ func CreateTodo(collection *mongo.Collection, userCollection *mongo.Collection) 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		response := map[string]interface{}{
-			"message": "Todo Created Successfully",
-			"id":      todo.ID.Hex(),
+			"message":  "Todo Created Successfully",
+			"id":       todo.ID.Hex(),
+			"name":     todo.Name,
+			"due_date": todo.DueDate,
 		}
 
 		json.NewEncoder(w).Encode(response)
