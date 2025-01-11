@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/go-chi/chi/v5"
-	handlers "github.com/userAdityaa/todo-backend/internal/sticky"
+	handlers "github.com/userAdityaa/todo-backend/pkg/sticky"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 

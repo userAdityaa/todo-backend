@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 	"github.com/userAdityaa/todo-backend/config"
-	"github.com/userAdityaa/todo-backend/internal/auth"
+	"github.com/userAdityaa/todo-backend/pkg/auth"
 	"github.com/userAdityaa/todo-backend/routes"
 )
 
