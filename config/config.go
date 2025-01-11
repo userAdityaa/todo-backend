@@ -54,7 +54,7 @@ func SetUpDataBase() (*mongo.Database, error) {
 	}
 
 	mongoURI := os.Getenv("MONGO_URI")
-	fmt.Println("mongo ka uri: ", mongoURI)
+	fmt.Printf("MONGO_URI value: '%s'\n", mongoURI)
 	if mongoURI == "" {
 		return nil, fmt.Errorf("MONGO_URI environment variable not set")
 	}
