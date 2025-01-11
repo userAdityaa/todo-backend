@@ -10,11 +10,5 @@
         "src": "/(.*)",
         "dest": "api/handler.go"
       }
-    ],
-    "env": {
-      "GOOGLE_CLIENT_ID": "GOOGLE_CLIENT_ID",
-      "GOOGLE_CLIENT_SECRET": "GOOGLE_CLIENT_SECRET",
-      "GOOGLE_REDIRECT_URL": "GOOGLE_REDIRECT_URL",
-      "MONGO_URI": "MONGO_URI"
-    }
+    ]
   }
