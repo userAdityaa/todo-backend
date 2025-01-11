@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -23,35 +22,51 @@ func LoadPort() string {
 	return "0.0.0.0" + port
 }
 
-func LoadConfig() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
+func LoadConfig() error {
+	if os.Getenv("VERCEL") == "" {
+		if err := godotenv.Load(); err != nil {
+			return fmt.Errorf("error loading .env file: %v", err)
+		}
 	}
 
 	GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
 	GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
 	GoogleRedirectURL = os.Getenv("GOOGLE_REDIRECT_URL")
+
+	if GoogleClientID == "" || GoogleClientSecret == "" || GoogleRedirectURL == "" {
+		return fmt.Errorf("missing required environment variables")
+	}
+
+	return nil
 }
 
-func SetUpDataBase() *mongo.Database {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
+func SetUpDataBase() (*mongo.Database, error) {
+	// Only load .env in development
+	if os.Getenv("VERCEL") == "" {
+		if err := godotenv.Load(); err != nil {
+			return nil, fmt.Errorf("error loading .env file: %v", err)
+		}
 	}
-	opts := options.Client().ApplyURI(os.Getenv("MONGO_URI"))
+
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		return nil, fmt.Errorf("MONGO_URI environment variable not set")
+	}
+
+	opts := options.Client().ApplyURI(mongoURI)
 	client, err := mongo.Connect(context.Background(), opts)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to connect to MongoDB: %v", err)
 	}
+
+	// Ping the database
 	err = client.Ping(context.Background(), nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to ping MongoDB: %v", err)
 	}
-	fmt.Println("Connected to mongoDB.")
 
 	database := client.Database("todoDB")
-	return database
+	return database, nil
 }
 
 func TodoCollection(database *mongo.Database) *mongo.Collection {

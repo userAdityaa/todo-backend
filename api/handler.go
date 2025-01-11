@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,7 +12,11 @@ import (
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	config.LoadConfig()
+	if err := config.LoadConfig(); err != nil {
+		log.Printf("Config error: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 
 	router := chi.NewRouter()
@@ -24,7 +29,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:           300,
 	})
 	router.Use(corsHandler.Handler)
-	database := config.SetUpDataBase()
+	database, err := config.SetUpDataBase()
+	if err != nil {
+		log.Printf("Database error: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
