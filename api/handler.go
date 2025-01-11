@@ -9,17 +9,27 @@ import (
 	"github.com/userAdityaa/todo-backend/config"
 	"github.com/userAdityaa/todo-backend/pkg/auth"
 	"github.com/userAdityaa/todo-backend/routes"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+var (
+	database *mongo.Database
+)
+
+func InitializeRouter() *chi.Mux {
 	if err := config.LoadConfig(); err != nil {
-		log.Printf("Config error: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		log.Fatalf("Failed to load config: %v", err)
 	}
+
 	auth.InitGoogleOAuth(config.GoogleClientID, config.GoogleClientSecret, config.GoogleRedirectURL)
 
-	router := chi.NewRouter()
+	var err error
+	database, err = config.SetUpDataBase()
+	if err != nil {
+		log.Fatalf("Failed to set up database: %v", err)
+	}
+
+	router := chi.NewMux()
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"https://minimal-planner.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -29,12 +39,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:           300,
 	})
 	router.Use(corsHandler.Handler)
-	database, err := config.SetUpDataBase()
-	if err != nil {
-		log.Printf("Database error: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+
 	router.HandleFunc("/auth/google/login", auth.GoogleLoginHandler)
 	router.HandleFunc("/auth/google/callback", auth.GoogleCallBackHandler(database))
 	router.Get("/auth/user", auth.GetUserDetailsHandler(database))
@@ -50,5 +55,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	routes.SetUpListRoutes(router, listCollection, userCollection)
 	routes.SetUpEventRoutes(router, eventCollection, userCollection)
 
+	return router
+}
+
+func Handler(router *chi.Mux, w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
 }
