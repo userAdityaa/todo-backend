@@ -53,6 +53,10 @@ func SetUpDataBase() (*mongo.Database, error) {
 		return nil, err
 	}
 
+	for _, env := range os.Environ() {
+		fmt.Println(env)
+	}
+
 	mongoURI := os.Getenv("MONGO_URI")
 	fmt.Printf("MONGO_URI value: '%s'\n", mongoURI)
 	if mongoURI == "" {
