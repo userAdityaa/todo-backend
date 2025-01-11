@@ -10,9 +10,20 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var GoogleClientID string
-var GoogleClientSecret string
-var GoogleRedirectURL string
+var (
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+)
+
+func loadEnv() error {
+	if os.Getenv("VERCEL") != "1" {
+		if err := godotenv.Load(); err != nil {
+			return fmt.Errorf("error loading .env file: %v", err)
+		}
+	}
+	return nil
+}
 
 func LoadPort() string {
 	port := os.Getenv("PORT")
@@ -23,10 +34,8 @@ func LoadPort() string {
 }
 
 func LoadConfig() error {
-	if os.Getenv("VERCEL") == "" {
-		if err := godotenv.Load(); err != nil {
-			return fmt.Errorf("error loading .env file: %v", err)
-		}
+	if err := loadEnv(); err != nil {
+		return err
 	}
 
 	GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
@@ -36,20 +45,16 @@ func LoadConfig() error {
 	if GoogleClientID == "" || GoogleClientSecret == "" || GoogleRedirectURL == "" {
 		return fmt.Errorf("missing required environment variables")
 	}
-
 	return nil
 }
 
 func SetUpDataBase() (*mongo.Database, error) {
-	// Only load .env in development
-	if os.Getenv("VERCEL") == "" {
-		if err := godotenv.Load(); err != nil {
-			return nil, fmt.Errorf("error loading .env file: %v", err)
-		}
+	if err := loadEnv(); err != nil {
+		return nil, err
 	}
 
 	mongoURI := os.Getenv("MONGO_URI")
-	fmt.Println(mongoURI)
+	fmt.Println("mongo ka uri: ", mongoURI)
 	if mongoURI == "" {
 		return nil, fmt.Errorf("MONGO_URI environment variable not set")
 	}
@@ -60,14 +65,12 @@ func SetUpDataBase() (*mongo.Database, error) {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %v", err)
 	}
 
-	// Ping the database
 	err = client.Ping(context.Background(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ping MongoDB: %v", err)
 	}
 
-	database := client.Database("todoDB")
-	return database, nil
+	return client.Database("todoDB"), nil
 }
 
 func TodoCollection(database *mongo.Database) *mongo.Collection {
